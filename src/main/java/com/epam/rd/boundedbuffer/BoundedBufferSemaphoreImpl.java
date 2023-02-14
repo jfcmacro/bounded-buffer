@@ -1,47 +1,68 @@
 package com.epam.rd.boundedbuffer;
 
-import java.lang.reflect.Array;
+import java.util.concurrent.Semaphore;
 
-public class BoundedBufferLowLevelImpl<T> implements BoundedBuffer<T> {
+public class BoundedBufferSemaphoreImpl<T> implements BoundedBuffer<T> {
 
     private T[] buffer;
     private int in;
     private int out;
     private int counter;
+    private Semaphore mutex;
+    private Semaphore full;
+    private Semaphore empty;
 
-    public BoundedBufferLowLevelImpl(Class<T> clazz, int capacity) {
-	this.buffer = (T[]) Array.newInstance(clazz, capacity);
+    public BoundedBufferSemaphoreImpl(Class<T> clazz, int capacity) {
+	this.buffer = BoundedBuffer.createBuffer(clazz, capacity);
 	this.in = this.out = this.counter = 0;
+	this.mutex = new Semaphore(1);
+	this.full  = new Semaphore(capacity);
+	this.empty = new Semaphore(0);
     }
 
     @Override
-    public synchronized void put(T elem) {
-	while (counter == buffer.length) {
+    public void put(T elem) {
+	try {
+	    full.acquire();
 	    try {
-		wait();
-	    } catch (InterruptedException ie) { }
+		mutex.acquire();
+		// Start Critical Section
+		buffer[in] = elem;
+		in = (in + 1) % buffer.length;
+		counter++;
+		// End Critical Section
+	    }
+	    finally {
+		mutex.release();
+	    }
+	    empty.release();
 	}
-	buffer[in] = elem;
-	in = (in + 1) % buffer.length;
-	counter++;
-	notifyAll();
+	catch (InterruptedException ie) {
+	    ie.printStackTrace();
+	}
     }
 
     @Override
-    public synchronized T get() {
-	while (counter == 0) {
+    public T get() {
+	T ret = null;
+	try {
+	    empty.acquire();
 	    try {
-		wait();
-	    } catch (InterruptedException ie) { }
+		mutex.acquire();
+		// Begin Critical Section
+		ret = buffer[out];
+		out = (out + 1) % buffer.length;
+		counter--;
+		// End Critical Section
+	    }
+	    finally {
+		mutex.release();
+	    }
+	    full.release();
 	}
-	T ret = buffer[out];
-	out = (out + 1) % buffer.length;
-	counter--;
-	notifyAll();
+	catch (InterruptedException ie) {
+	    ie.printStackTrace();
+	}
 	return ret;
     }
 }
-    
-
-
-    
