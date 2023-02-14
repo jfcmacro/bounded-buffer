@@ -39,13 +39,14 @@ public class App {
     public static void main(String[] args) {
 	Random random = new Random(System.currentTimeMillis());
 
-	BoundedBuffer<Long> boundedBuffer =
-	    new BoundedBufferSemaphoreImpl<>(Long.class, 10);
+	BoundedBuffer<Double> boundedBuffer =
+	    new BoundedBufferLockImpl<>(Double.class, 10);
 
 	Runnable producer = () -> {
-	    long i = 0L;
+	    double i = 1.2;
 	    while (true) {
-		boundedBuffer.put(i++);
+		boundedBuffer.put(i);
+		i += 1.3;
 		try {
 		    Thread.sleep(random.nextInt(getProp(SLEEP_PRODUCER) + 1));
 		} catch(InterruptedException ie) { }
@@ -54,7 +55,7 @@ public class App {
 
 	Runnable consumer = () -> {
 	    while (true) {
-		long value = boundedBuffer.get();
+		double value = boundedBuffer.get();
 		System.out.println("Value: " + value);
 		try {
 		    Thread.sleep(random.nextInt(getProp(SLEEP_CONSUMER) + 1));
